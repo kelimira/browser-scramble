@@ -132,7 +132,7 @@ function drawEntity(ctx, e, x) {
   } else if (e.kind === 'fuel') {
     const g = ctx.createLinearGradient(x, 0, x + w, 0);
     g.addColorStop(0, '#a01010'); g.addColorStop(0.35, '#ff5040'); g.addColorStop(1, '#801010');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, top + 2, w, h - 2, 5); ctx.fill();
+    ctx.fillStyle = g; ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(x, top + 2, w, h - 2, 5) : ctx.rect(x, top + 2, w, h - 2)); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.strokeRect(x + 2, top + 8, w - 4, 9);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
     ctx.fillText('FUEL', x + w / 2, top + 16); ctx.textAlign = 'left';

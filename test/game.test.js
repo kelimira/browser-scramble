@@ -107,7 +107,7 @@ test('draw renders every entity kind and state without throwing', () => {
     ? () => ({ addColorStop() {} }) : (t[k] ?? ((...a) => { calls.add(k); })), set: (t, k, v) => (t[k] = v, true) });
   const g = G.newGame();
   for (let i = 0; i < 400; i++) G.step(g, {}, i % 20 === 0, i % 30 === 0);
-  for (const k of ['fuel', 'rocket', 'base']) g.ents.set(1000 + k.length, { kind: k, x: g.scroll + 300, y: 300, w: 20, h: 22, alive: true, launched: k === 'rocket' });
+  ['fuel', 'rocket', 'base'].forEach((k, i) => g.ents.set(1000 + i, { kind: k, x: g.scroll + 300, y: 300, w: 20, h: 22, alive: true, launched: k === 'rocket' }));
   g.booms.push({ x: g.scroll + 50, y: 100, t: 5 }); g.over = true;
   G.draw(ctx, g);
   assert.ok(calls.has('fill') && calls.has('stroke'));
