@@ -1,0 +1,7 @@
+{
+  "name": "scramble",
+  "version": "1.0.0",
+  "description": "Browser version of the classic Scramble side-scrolling shooter",
+  "scripts": { "test": "node --test test/" },
+  "license": "MIT"
+}
