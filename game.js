@@ -97,6 +97,91 @@ function step(g, keys, fire, bomb) {
   if (g.scroll > g.level * 8000) { g.level++; g.score += 1000; }
 }
 
+// ---- Rendering (vector sprites; no game logic) ----
+function terrainPath(ctx, fn, edgeY, scroll) {
+  ctx.beginPath(); ctx.moveTo(0, edgeY);
+  for (let x = 0; x <= W; x += 2) ctx.lineTo(x, fn(x + scroll));
+  ctx.lineTo(W, edgeY); ctx.closePath();
+}
+
+function drawTerrain(ctx, g) {
+  const fl = ctx.createLinearGradient(0, 200, 0, H);
+  fl.addColorStop(0, '#3a9d23'); fl.addColorStop(0.35, '#8a5a1e'); fl.addColorStop(1, '#3b230c');
+  const ce = ctx.createLinearGradient(0, 0, 0, 80);
+  ce.addColorStop(0, '#2a1a5e'); ce.addColorStop(1, '#6a3fb5');
+  for (const [fn, edge, fill, line] of [[floorY, H, fl, '#9fff6a'], [ceilY, 0, ce, '#c9a8ff']]) {
+    terrainPath(ctx, fn, edge, g.scroll); ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = line; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let x = 0; x <= W; x += 2) ctx[x ? 'lineTo' : 'moveTo'](x, fn(x + g.scroll));
+    ctx.stroke();
+  }
+}
+
+function drawEntity(ctx, e, x) {
+  const { y, w, h } = e, top = y - h;
+  ctx.lineWidth = 1;
+  if (e.kind === 'rocket') {
+    ctx.fillStyle = '#d8d8e0'; ctx.beginPath(); // body with pointed nose
+    ctx.moveTo(x + w / 2, top); ctx.lineTo(x + w * 0.75, top + 8); ctx.lineTo(x + w * 0.75, y - 3);
+    ctx.lineTo(x + w * 0.25, y - 3); ctx.lineTo(x + w * 0.25, top + 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#e02020'; ctx.beginPath(); // nose cone + fins
+    ctx.moveTo(x + w / 2, top); ctx.lineTo(x + w * 0.72, top + 8); ctx.lineTo(x + w * 0.28, top + 8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + w * 0.25, y - 10); ctx.lineTo(x, y); ctx.lineTo(x + w * 0.25, y - 3);
+    ctx.moveTo(x + w * 0.75, y - 10); ctx.lineTo(x + w, y); ctx.lineTo(x + w * 0.75, y - 3); ctx.fill();
+    if (e.launched) { ctx.fillStyle = '#fa0'; ctx.beginPath(); ctx.moveTo(x + w * 0.3, y - 3); ctx.lineTo(x + w / 2, y + 8); ctx.lineTo(x + w * 0.7, y - 3); ctx.fill(); }
+  } else if (e.kind === 'fuel') {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, '#a01010'); g.addColorStop(0.35, '#ff5040'); g.addColorStop(1, '#801010');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, top + 2, w, h - 2, 5); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.strokeRect(x + 2, top + 8, w - 4, 9);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('FUEL', x + w / 2, top + 16); ctx.textAlign = 'left';
+  } else { // base: domed bunker with antenna
+    ctx.fillStyle = '#4a8a4a'; ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.lineTo(x + 3, y - 8);
+    ctx.lineTo(x + w - 3, y - 8); ctx.lineTo(x + w + 2, y); ctx.fill();
+    ctx.fillStyle = '#9fe09f'; ctx.beginPath(); ctx.arc(x + w / 2, y - 8, 7, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = '#9fe09f'; ctx.beginPath(); ctx.moveTo(x + w / 2, y - 15); ctx.lineTo(x + w / 2, y - h); ctx.stroke();
+    ctx.fillStyle = '#f33'; ctx.fillRect(x + w / 2 - 1.5, y - h - 2, 3, 3);
+  }
+}
+
+function drawShip(ctx, x, y) { // delta-wing jet pointing right
+  ctx.fillStyle = '#e8eef5'; ctx.beginPath();
+  ctx.moveTo(x + SHIP_W, y + 6); ctx.lineTo(x + 16, y + 2); ctx.lineTo(x + 6, y + 1); ctx.lineTo(x, y - 3);
+  ctx.lineTo(x + 3, y + 5); ctx.lineTo(x + 2, y + SHIP_H + 2); ctx.lineTo(x + 8, y + SHIP_H); ctx.lineTo(x + 18, y + 9); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3ab8ff'; ctx.beginPath(); ctx.ellipse(x + 14, y + 3, 5, 2.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e02020'; ctx.fillRect(x + 4, y + 4, 8, 2);
+  ctx.fillStyle = '#fa0'; ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(x - 7, y + 6); ctx.lineTo(x, y + 8); ctx.fill();
+}
+
+function draw(ctx, g) {
+  ctx.fillStyle = '#05050f'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 60; i++) { // parallax stars
+    const sx = ((hash(i) * W * 2 - g.scroll * (0.1 + hash(i + 99) * 0.2)) % W + W) % W;
+    ctx.fillRect(sx, hash(i + 50) * H, 1.5, 1.5);
+  }
+  drawTerrain(ctx, g);
+  for (const e of g.ents.values()) if (e && e.alive) drawEntity(ctx, e, e.x - g.scroll);
+  ctx.fillStyle = '#ffe9a0';
+  g.shots.forEach(b => { ctx.beginPath(); ctx.ellipse(b.x + 5, b.y, 6, 1.5, 0, 0, 7); ctx.fill(); });
+  ctx.fillStyle = '#ccc';
+  g.bombs.forEach(b => { ctx.beginPath(); ctx.ellipse(b.x, b.y, 2.5, 4, 0, 0, 7); ctx.fill(); });
+  if (!g.dead) drawShip(ctx, g.ship.x, g.ship.y);
+  g.booms.forEach(b => {
+    const r = b.t * 1.5, bx = b.x - g.scroll, a = 1 - b.t / 20;
+    const rg = ctx.createRadialGradient(bx, b.y, 0, bx, b.y, r + 1);
+    rg.addColorStop(0, `rgba(255,255,200,${a})`); rg.addColorStop(0.5, `rgba(255,160,0,${a})`); rg.addColorStop(1, 'rgba(200,30,0,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bx, b.y, r + 1, 0, 7); ctx.fill();
+  });
+  ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
+  ctx.fillText(`SCORE ${g.score}  LIVES ${g.lives}  LEVEL ${g.level}`, 10, H - 6);
+  ctx.fillText('FUEL', W - 255, H - 8);
+  ctx.fillStyle = '#222'; ctx.fillRect(W - 210, H - 18, 200, 10);
+  ctx.fillStyle = g.fuel < 25 ? '#f33' : '#fd0'; ctx.fillRect(W - 210, H - 18, 2 * g.fuel, 10);
+  if (g.over) { ctx.fillStyle = '#fff'; ctx.font = '28px monospace'; ctx.fillText('GAME OVER - press Enter', 220, 200); }
+}
+
 // ---- Browser layer ----
 function start() {
   const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -110,30 +195,8 @@ function start() {
     if (map[e.key] || e.key === ' ') e.preventDefault();
   });
   addEventListener('keyup', e => { if (map[e.key]) keys[map[e.key]] = false; });
-  function draw() {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#a52'; ctx.beginPath(); ctx.moveTo(0, H);
-    for (let x = 0; x <= W; x += 4) ctx.lineTo(x, floorY(x + g.scroll));
-    ctx.lineTo(W, H); ctx.fill();
-    ctx.fillStyle = '#25a'; ctx.beginPath(); ctx.moveTo(0, 0);
-    for (let x = 0; x <= W; x += 4) ctx.lineTo(x, ceilY(x + g.scroll));
-    ctx.lineTo(W, 0); ctx.fill();
-    const col = { fuel: '#fd0', rocket: '#e33', base: '#3c3' };
-    for (const e of g.ents.values()) if (e && e.alive) { ctx.fillStyle = col[e.kind]; ctx.fillRect(e.x - g.scroll, e.y - e.h, e.w, e.h); }
-    ctx.fillStyle = '#fff';
-    g.shots.forEach(b => ctx.fillRect(b.x, b.y, 10, 2));
-    g.bombs.forEach(b => ctx.fillRect(b.x, b.y, 5, 5));
-    if (!g.dead) { ctx.fillStyle = '#0ff'; ctx.fillRect(g.ship.x, g.ship.y, SHIP_W, SHIP_H); }
-    ctx.fillStyle = '#fa0';
-    g.booms.forEach(b => { ctx.beginPath(); ctx.arc(b.x - g.scroll, b.y, b.t * 1.5, 0, 7); ctx.fill(); });
-    ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
-    ctx.fillText(`SCORE ${g.score}  LIVES ${g.lives}  LEVEL ${g.level}`, 10, H - 6);
-    ctx.fillStyle = '#333'; ctx.fillRect(W - 210, H - 18, 200, 10);
-    ctx.fillStyle = g.fuel < 25 ? '#f33' : '#fd0'; ctx.fillRect(W - 210, H - 18, 2 * g.fuel, 10);
-    if (g.over) { ctx.fillStyle = '#fff'; ctx.font = '28px monospace'; ctx.fillText('GAME OVER - press Enter', 220, 200); }
-  }
-  (function loop() { step(g, keys, fire, bomb); fire = bomb = false; draw(); requestAnimationFrame(loop); })();
+  (function loop() { step(g, keys, fire, bomb); fire = bomb = false; draw(ctx, g); requestAnimationFrame(loop); })();
 }
 
-if (typeof module !== 'undefined') module.exports = { newGame, step, floorY, ceilY, entityForSlot, rectHit, shipHitsTerrain, W, H, FUEL_MAX };
+if (typeof module !== 'undefined') module.exports = { newGame, step, floorY, ceilY, entityForSlot, rectHit, shipHitsTerrain, draw, W, H, FUEL_MAX };
 else start();
