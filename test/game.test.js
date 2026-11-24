@@ -48,3 +48,55 @@ test('fire and bomb are capped', () => {
   for (let i = 0; i < 10; i++) { G.step(g, none, true, true); g.ship.y = 200; }
   assert.ok(g.shots.length <= 4 && g.bombs.length <= 3);
 });
+
+const ent = (kind, x, y) => ({ kind, x, y, w: 20, h: 22, alive: true, launched: false, vy: 0 });
+
+test('final death explosion keeps animating after game over', () => {
+  const g = G.newGame(); g.lives = 1; g.ship.y = 399; G.step(g, none, false, false);
+  assert.ok(g.over); G.step(g, none, false, false);
+  assert.ok(g.booms.length && g.booms[0].t > 0);
+});
+
+test('ceiling collision loses a life', () => {
+  const g = G.newGame(); g.ship.y = -5; G.step(g, none, false, false);
+  assert.strictEqual(g.lives, 2);
+});
+
+test('shots are destroyed by the floor', () => {
+  const g = G.newGame(); g.ship.y = 200; const x = 300, fy = G.floorY(x + 2);
+  g.shots.push({ x, y: fy + 5 }); G.step(g, none, false, false);
+  assert.strictEqual(g.shots.length, 0);
+});
+
+test('bomb falls, hits floor target and is consumed', () => {
+  const g = G.newGame(); g.ship.y = 200;
+  const e = ent('base', 210, G.floorY(210)); g.ents.set(1, e);
+  g.bombs.push({ x: 200, y: e.y - 40, vx: 0, vy: 0 });
+  for (let i = 0; i < 20 && e.alive; i++) G.step(g, none, false, false);
+  assert.strictEqual(e.alive, false);
+});
+
+test('bomb is removed on terrain', () => {
+  const g = G.newGame(); g.ship.y = 200; g.bombs.push({ x: 400, y: G.floorY(400) + 1, vx: 2, vy: 0 });
+  G.step(g, none, false, false); assert.strictEqual(g.bombs.length, 0);
+});
+
+test('rocket launches when ship is near, not when far', () => {
+  const g = G.newGame(); g.ship.y = 200;
+  const near = ent('rocket', 100 + 100, G.floorY(200)), far = ent('rocket', 100 + 600, G.floorY(700));
+  g.ents.set(1, near); g.ents.set(5, far); G.step(g, none, false, false);
+  assert.ok(near.launched); assert.ok(!far.launched);
+});
+
+test('ship colliding with ground entity loses a life', () => {
+  const g = G.newGame(); g.ship.y = 200;
+  g.ents.set(1, ent('base', 100 + 2 + 5, 205 + 22)); G.step(g, none, false, false);
+  assert.strictEqual(g.lives, 2);
+});
+
+test('launched rocket despawns at the ceiling', () => {
+  const g = G.newGame(); g.ship.y = 200;
+  const r = ent('rocket', 300, G.ceilY(300) + 30); r.launched = true; r.vy = 3.5; g.ents.set(2, r);
+  for (let i = 0; i < 5 && r.alive; i++) G.step(g, none, false, false);
+  assert.strictEqual(r.alive, false);
+});

@@ -51,7 +51,7 @@ function loseLife(g) {
 
 // keys: {left,right,up,down}; fire/bomb are one-shot booleans.
 function step(g, keys, fire, bomb) {
-  if (g.over) return;
+  if (g.over) { g.booms.forEach(b => b.t++); g.booms = g.booms.filter(b => b.t < 20); return; }
   if (g.dead > 0) {
     if (--g.dead === 0) { // respawn, keeping scroll and refilling fuel
       g.ship = { x: 100, y: (ceilY(g.scroll + 100) + floorY(g.scroll + 100)) / 2 };
@@ -77,7 +77,8 @@ function step(g, keys, fire, bomb) {
   const ents = [...g.ents.values()].filter(e => e && e.alive);
   for (const e of ents) { // rockets launch when ship is near
     if (e.kind === 'rocket' && !e.launched && Math.abs(e.x - (g.scroll + s.x)) < 170) e.launched = true;
-    if (e.launched) { e.vy = Math.min(e.vy + 0.08, 3.5); e.y -= e.vy; }
+    if (e.launched) { e.vy = Math.min(e.vy + 0.08, 3.5); e.y -= e.vy;
+    if (e.launched && e.y - e.h <= ceilY(e.x)) { e.alive = false; explode(g, e.x, e.y); } }
   }
   const screen = e => ({ x: e.x - g.scroll, y: e.y - e.h, w: e.w, h: e.h });
   const hitEnt = (px, py, r) => ents.find(e => e.alive && rectHit({ x: px - r, y: py - r, w: 2 * r, h: 2 * r }, screen(e)));
@@ -87,7 +88,7 @@ function step(g, keys, fire, bomb) {
     const e = hitEnt(b.x, b.y, 3);
     if (e) { kill(e); b.y = H + 99; } else if (b.y > floorY(b.x + g.scroll)) b.y = H + 99;
   }
-  g.shots = g.shots.filter(b => b.x < W && b.y > ceilY(b.x + g.scroll));
+  g.shots = g.shots.filter(b => b.x < W && b.y > ceilY(b.x + g.scroll) && b.y < floorY(b.x + g.scroll));
   g.bombs = g.bombs.filter(b => b.y < H);
   g.booms.forEach(b => b.t++); g.booms = g.booms.filter(b => b.t < 20);
 
